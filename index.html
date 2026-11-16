@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regression Diagnostics Lab</title>
+<meta name="description" content="A guided, interactive introduction to leverage, discrepancy, influence, and multicollinearity in regression.">
+<style>
+:root{
+  --bg:#f6f6f3; --surface:#ffffff; --surface-2:#f1f2f4; --ink:#1c1f24; --muted:#5a6170; --line:#dcdfe5; --grid:#eceef2;
+  --accent:#2457a6; --accent-soft:#e7eefb; --alt:#7b3fe4; --alt-soft:#f1e9ff;
+  --flag:#c2410c; --flag-soft:#fdeee5; --warn:#b7791f; --warn-soft:#fdf4e1; --ok:#157a3b; --ok-soft:#e5f5eb; --base:#9aa1ad;
+  --radius:12px; --shadow:0 1px 2px rgba(0,0,0,.05),0 2px 10px rgba(0,0,0,.04);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121418; --surface:#1b1e23; --surface-2:#23272e; --ink:#e7e9ec; --muted:#a2a8b4; --line:#2f343c; --grid:#262a31;
+    --accent:#7ea9f2; --accent-soft:#1d2a42; --alt:#b994ff; --alt-soft:#2a2140;
+    --flag:#fb923c; --flag-soft:#3a2416; --warn:#f6c453; --warn-soft:#3a3018; --ok:#4ade80; --ok-soft:#14301f; --base:#6b7280;
+    --shadow:none; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121418; --surface:#1b1e23; --surface-2:#23272e; --ink:#e7e9ec; --muted:#a2a8b4; --line:#2f343c; --grid:#262a31;
+  --accent:#7ea9f2; --accent-soft:#1d2a42; --alt:#b994ff; --alt-soft:#2a2140;
+  --flag:#fb923c; --flag-soft:#3a2416; --warn:#f6c453; --warn-soft:#3a3018; --ok:#4ade80; --ok-soft:#14301f; --base:#6b7280;
+  --shadow:none; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 16px 48px}
+header h1{font-size:1.55rem;margin:0 0 2px;letter-spacing:-.01em}
+header p{margin:0;color:var(--muted)}
+.tabs{display:flex;gap:6px;margin:18px 0 16px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{appearance:none;border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:10px 14px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.panel[hidden]{display:none}
+.grid2{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:880px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);min-width:0}
+.card h2{font-size:1.15rem;margin:0 0 6px}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.muted{color:var(--muted)}
+.small{font-size:.88rem}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button.btn{appearance:none;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);font:inherit;font-size:.9rem;font-weight:600;padding:7px 12px;border-radius:8px;cursor:pointer}
+button.btn:hover{border-color:var(--accent)}
+button.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) button.btn.primary{color:#0d1220}}
+:root[data-theme="dark"] button.btn.primary{color:#0d1220}
+button.btn:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:16px}
+.step{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:inherit;font-size:.88rem;text-align:left;padding:8px 10px;border-radius:10px;cursor:pointer;min-width:0}
+.step b{display:block;color:var(--ink);font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step[aria-current="step"]{border-color:var(--accent);background:var(--accent-soft)}
+.step[aria-current="step"] b{color:var(--accent)}
+.step .chk{color:var(--ok);font-weight:700}
+@media (max-width:560px){.step span.q{display:none}}
+svg{display:block;width:100%;height:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+svg text{fill:var(--muted);font-size:12px;font-family:inherit}
+.gridline{stroke:var(--grid)}
+.pt{cursor:grab;stroke:var(--surface);stroke-width:1.5}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.84rem;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:18px;height:0;border-top:2.5px solid var(--accent);vertical-align:middle;margin-right:6px}
+.legend i.alt{border-top:2.5px dashed var(--alt)}
+.legend i.dot{width:10px;height:10px;border-radius:50%;border:0;background:var(--flag)}
+.legend i.dot.ok{background:var(--accent)}
+.q{font-size:1.05rem;font-weight:700;margin:2px 0 2px}
+.term{font-size:.85rem;color:var(--muted);margin-bottom:8px}
+.explain p{margin:6px 0}
+.meter{margin:12px 0 4px}
+.meter .lab{display:flex;justify-content:space-between;font-size:.9rem;gap:8px}
+.meter .lab .val{font-weight:700;font-variant-numeric:tabular-nums}
+.meter .lab .val.flag{color:var(--flag)}
+.meter .track{position:relative;height:14px;background:var(--surface-2);border-radius:7px;margin-top:4px}
+.meter .fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);border-radius:7px;transition:width .15s}
+.meter .fill.flag{background:var(--flag)}
+.meter .cut{position:absolute;top:-4px;bottom:-4px;border-left:2px dashed var(--ink);opacity:.6}
+.meter .note{font-size:.8rem;color:var(--muted);margin-top:3px}
+.verdict{margin-top:6px;font-size:.92rem;padding:6px 10px;border-radius:8px;background:var(--surface-2)}
+.verdict.flag{background:var(--flag-soft)}
+table{border-collapse:collapse;width:100%;font-size:.92rem;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:var(--muted);font-size:.84rem}
+.pill{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.pill.done{background:var(--ok-soft);color:var(--ok)}
+.chal{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px}
+.chal.done{border-color:var(--ok)}
+.chal .head{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.chal p{margin:6px 0}
+.chal .hint{display:none;border-left:3px solid var(--line);padding-left:10px;color:var(--muted);font-size:.9rem}
+.chal.showhint .hint{display:block}
+.chal .fb{display:none;border-left:3px solid var(--ok);padding:6px 10px;background:var(--ok-soft);border-radius:0 8px 8px 0;font-size:.92rem;margin-top:8px}
+.chal.done .fb{display:block}
+.chal.flash{animation:flash 1.2s ease}
+@keyframes flash{0%{box-shadow:0 0 0 0 var(--ok)}30%{box-shadow:0 0 0 4px var(--ok)}100%{box-shadow:0 0 0 0 transparent}}
+.linkish{appearance:none;border:0;background:none;color:var(--accent);font:inherit;font-size:.86rem;cursor:pointer;padding:0;text-decoration:underline}
+.nav{display:flex;justify-content:space-between;margin-top:14px}
+.slider{margin:8px 0 4px}
+.slider .top{display:flex;justify-content:space-between;gap:8px;font-size:.95rem}
+.slider output{font-variant-numeric:tabular-nums;font-weight:700;font-size:1.1rem}
+.slider input{width:100%;accent-color:var(--accent);margin-top:6px}
+.zone{display:inline-block;font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:999px}
+.zone.ok{background:var(--ok-soft);color:var(--ok)} .zone.warn{background:var(--warn-soft);color:var(--warn)} .zone.bad{background:var(--flag-soft);color:var(--flag)}
+.about h2{margin-top:22px}
+.about p,.about li{max-width:72ch}
+.about td,.about th{text-align:left;min-width:110px}
+.formula{font-family:"Cambria Math","STIX Two Math","Times New Roman",serif;background:var(--surface-2);border-radius:8px;padding:8px 12px;overflow-x:auto;white-space:nowrap}
+.tablewrap{overflow-x:auto}
+/* glossary */
+.gloss h2{margin:22px 0 4px;font-size:1.15rem}
+.gloss h2:first-child{margin-top:0}
+.gloss dl{margin:0;display:grid;grid-template-columns:minmax(150px,220px) minmax(0,1fr);gap:0}
+.gloss dt,.gloss dd{padding:10px 0;border-bottom:1px solid var(--line);margin:0}
+.gloss dt{font-weight:700;padding-right:14px}
+.gloss dt small{display:block;font-weight:400;color:var(--muted);font-size:.8rem}
+.gloss dd p{margin:0 0 4px;max-width:70ch}
+.gloss dd .eg{color:var(--muted);font-size:.9rem}
+.gloss dt.hl,.gloss dd.hl{background:var(--accent-soft)}
+@media (max-width:620px){.gloss dl{grid-template-columns:minmax(0,1fr)}.gloss dt{border-bottom:0;padding-bottom:0}}
+.foot{margin-top:28px;font-size:.8rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Regression Diagnostics Lab</h1>
+  <p>Drag the data and watch what changes. A companion to the Day 10 notes.</p>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Lab sections">
+  <button class="tab" role="tab" id="tab-out" aria-controls="p-out" aria-selected="true">1 · Unusual cases</button>
+  <button class="tab" role="tab" id="tab-col" aria-controls="p-col" aria-selected="false">2 · Overlapping predictors</button>
+  <button class="tab" role="tab" id="tab-terms" aria-controls="p-terms" aria-selected="false">Key terms</button>
+  <button class="tab" role="tab" id="tab-about" aria-controls="p-about" aria-selected="false">About the data</button>
+</nav>
+
+<!-- ================= TAB 1 ================= -->
+<section class="panel" id="p-out" role="tabpanel" aria-labelledby="tab-out">
+  <div class="steps" id="stepper"></div>
+  <div class="grid2">
+    <div class="card">
+      <h2>Years since PhD → Publications <span class="muted small">(15 faculty, simulated)</span></h2>
+      <p class="small muted" style="margin:0 0 6px"><b>Drag any point</b> to move it. Click a point to select it.</p>
+      <svg id="scatter" viewBox="0 0 640 410" role="img" aria-label="Scatterplot of publications by years since PhD"></svg>
+      <div class="legend" id="legend"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" id="resetData">Reset data</button>
+        <button class="btn" id="scenario" hidden>Load the slide 10 example</button>
+      </div>
+    </div>
+    <div class="card" id="stepCard"></div>
+  </div>
+</section>
+
+<!-- ================= TAB 2 ================= -->
+<section class="panel" id="p-col" role="tabpanel" aria-labelledby="tab-col" hidden>
+  <div class="grid2">
+    <div class="stack">
+      <div class="card">
+        <h2>Two predictors of a test score</h2>
+        <p class="small muted" style="margin:0 0 8px">We predict students' test scores from <b>X1 = self-reported grades</b> and <b>X2 = homework time</b>. The true effect of X1 is <b>B₁ = 0.40</b>. Move the slider to change how strongly the two predictors are related to each other. <button class="linkish" data-term="collinearity">What is collinearity?</button></p>
+        <div class="slider">
+          <div class="top"><label for="r12">Correlation between X1 and X2</label><output id="o12">0.30</output></div>
+          <input type="range" id="r12" min="-0.95" max="0.95" step="0.05" value="0.30">
+        </div>
+        <svg id="venn" viewBox="0 0 420 200" role="img" aria-label="Overlap of X1 and X2"></svg>
+        <p class="small muted" style="margin:4px 0 0">The overlap is the share of X1 that X2 already explains (r²). Only the <b>unique</b> part of X1 helps the regression estimate B₁.</p>
+      </div>
+      <div class="card">
+        <h2>What this does to the estimate of B₁</h2>
+        <p class="small muted" style="margin:0 0 6px">The likely range of B₁ estimates (95% <button class="linkish" data-term="ci">confidence interval</button>) for a study of 100 students.</p>
+        <svg id="ciPlot" viewBox="0 0 440 150" role="img" aria-label="Confidence interval for B1 with and without correlated predictors"></svg>
+        <p class="small" id="ciText" style="margin:6px 0 0"></p>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <h2>The collinearity numbers</h2>
+        <div id="colNums"></div>
+        <p class="small" style="margin:8px 0 0"><button class="linkish" data-term="vif">What do VIF and tolerance mean?</button></p>
+      </div>
+      <div class="card">
+        <h2>Challenges <span class="muted small" id="colProgress"></span></h2>
+        <div id="colChallenges"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= KEY TERMS ================= -->
+<section class="panel" id="p-terms" role="tabpanel" aria-labelledby="tab-terms" hidden>
+  <div class="card gloss">
+    <h2>The basics</h2>
+    <dl>
+      <dt id="t-line">Regression line<small>also: fitted line, OLS line</small></dt>
+      <dd><p>The straight line that best summarizes how Y changes with X. “Best” means it makes the squared vertical distances from the points to the line as small as possible.</p><p class="eg">On Tab 1, the solid blue line.</p></dd>
+      <dt id="t-slope">Slope (B₁)</dt>
+      <dd><p>How much Y is predicted to change when X goes up by 1.</p><p class="eg">A slope of 2 means each extra year since the PhD goes with about 2 more publications.</p></dd>
+      <dt id="t-predicted">Predicted value (Ŷ)</dt>
+      <dd><p>The Y value the regression line gives for a case's X value: the height of the line above that case.</p></dd>
+      <dt id="t-residual">Residual</dt>
+      <dd><p>Actual Y minus predicted Y: how far a point sits above (+) or below (−) the line.</p></dd>
+      <dt id="t-r2">R²</dt>
+      <dd><p>The share of the variation in Y that the predictors explain, from 0 (none) to 1 (all).</p></dd>
+      <dt id="t-se">Standard error (SE)</dt>
+      <dd><p>How much an estimate such as B₁ would bounce around if you repeated the study with new samples. A smaller SE means a more precise estimate.</p></dd>
+      <dt id="t-ci">Confidence interval (95% CI)</dt>
+      <dd><p>A range of plausible values for the true effect, roughly the estimate ± 2 standard errors. If the interval includes 0, the effect is usually not statistically significant.</p></dd>
+    </dl>
+
+    <h2>Unusual cases (Tab 1)</h2>
+    <dl>
+      <dt id="t-outlier">Outlier</dt>
+      <dd><p>A case that is very different from the rest, or that has an unreasonably large effect on the regression results. It might be a real but rare case, or a mistake such as a typo.</p></dd>
+      <dt id="t-leverage">Leverage<small>statistic: centered leverage, h*</small></dt>
+      <dd><p>How unusual a case's <b>X value</b> is, meaning how far it is from the average X. Y doesn't matter at all. High leverage gives a case the <em>potential</em> to tilt the line, like sitting at the end of a seesaw.</p><p class="eg">Rule of thumb here: h* above .20 (3k/n for small samples).</p></dd>
+      <dt id="t-discrepancy">Discrepancy<small>statistic: studentized deleted residual, SDR</small></dt>
+      <dd><p>How far a case's <b>Y value</b> is from what the regression predicts for it. To measure this fairly, the line is fit <em>without</em> the case first (that's the “deleted” part), because a case pulls the line toward itself. The distance is then put on a standard scale, like a z-score (the “studentized” part).</p><p class="eg">Rule of thumb here: beyond ±3.</p></dd>
+      <dt id="t-influence">Influence<small>statistic: DFFITS</small></dt>
+      <dd><p>How much the regression results change when a case is deleted. A case usually needs <b>both</b> high leverage and a large discrepancy to be influential.</p><p class="eg">Rule of thumb here: beyond ±1 for small samples.</p></dd>
+      <dt id="t-cutoff">Rule of thumb / cutoff</dt>
+      <dd><p>A conventional threshold for flagging a case to look at more closely. It is <b>not</b> a test, and crossing it doesn't automatically mean the case should be deleted.</p></dd>
+    </dl>
+
+    <h2>Overlapping predictors (Tab 2)</h2>
+    <dl>
+      <dt id="t-collinearity">Collinearity<small>also: multicollinearity</small></dt>
+      <dd><p>When predictors are strongly related to each other, so they carry overlapping information. The regression then has a hard time telling which predictor deserves the credit.</p></dd>
+      <dt id="t-r2j">R²<sub>j</sub></dt>
+      <dd><p>How much of one predictor can be explained by the <em>other</em> predictors. With just two predictors, it equals their correlation squared (r²).</p></dd>
+      <dt id="t-tol">Tolerance</dt>
+      <dd><p>The share of a predictor that is <b>unique</b>, not overlapping with the other predictors: 1 − R²<sub>j</sub>.</p><p class="eg">Rule of thumb: .10 or less is serious.</p></dd>
+      <dt id="t-vif">Variance inflation factor (VIF)</dt>
+      <dd><p>How many times larger the <b>variance</b> of a slope is because of the overlap: 1 / tolerance. Its square root, √VIF, is how many times larger the standard error is.</p><p class="eg">Rules of thumb: above 5 is a concern, above 10 is serious.</p></dd>
+    </dl>
+  </div>
+</section>
+
+<!-- ================= ABOUT ================= -->
+<section class="panel about" id="p-about" role="tabpanel" aria-labelledby="tab-about" hidden>
+  <div class="card">
+    <h2 style="margin-top:0">Tab 1: Years since PhD and publications</h2>
+    <p><b>These data are simulated. They are not real faculty.</b> The 15 cases were generated to look like a small study of faculty productivity: Years since PhD runs from 2 to 18, and publications were created from</p>
+    <p class="formula">Pubs = 4 + 2.0 × Years + random noise (SD = 7), rounded</p>
+    <p>The starting data were chosen to be “clean”, with no unusual cases. With the original data, the slope is about 2 publications per year (B₁ ≈ 1.99) and R² ≈ .56.</p>
+    <p>The <b>slide 10 example</b> moves case 15 to 32 years and 6 publications. That could be an emeritus professor who stopped publishing, or a typo. This one change flattens the slope to about 0.07 and drops R² to about .002.</p>
+    <p>Because the sample is small (n = 15, one predictor), the tool uses the small-sample rules of thumb from the notes:</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Question</th><th>Statistic (SPSS name)</th><th>Rule of thumb used</th></tr></thead>
+      <tbody>
+        <tr><td>How unusual is the case's X value?</td><td>Centered leverage, h* (LEV_1)</td><td>h* &gt; 3k/n = 3(1)/15 = .20</td></tr>
+        <tr><td>How far is it from the line the other cases predict?</td><td>Studentized deleted residual (SDR_1)</td><td>beyond ±3</td></tr>
+        <tr><td>How much does it change the results?</td><td>DFFITS (SDF_1)</td><td>beyond ±1</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small muted">The notes cover more than this tool shows, including DFBETAS and the large-sample cutoffs. Rules of thumb are not tests. A flagged case is a reason to look more closely.</p>
+    <p><button class="btn" id="dlCsv">Download the current Tab 1 data (CSV)</button> <span class="small muted">to check the numbers yourself in SPSS, R, or Stata.</span></p>
+
+    <h2>Tab 2: two overlapping predictors</h2>
+    <p><b>Also simulated.</b> The numbers on Tab 2 are not from one random sample. They are what you would expect for a study of n = 100 students, where both predictors are standardized, the true effect of X1 is B₁ = 0.40, and the outcome's leftover (residual) SD is 1. With only two predictors, X2 explains r² of X1, so</p>
+    <p class="formula">Tolerance = 1 − r², &nbsp; VIF = 1 / (1 − r²), &nbsp; SE(B₁) ≈ 1 / √((n − 1)(1 − r²)), &nbsp; 95% CI ≈ B₁ ± 1.98 × SE(B₁)</p>
+    <p>Rules of thumb from the notes: VIF &gt; 5 is a concern and VIF &gt; 10 is serious (tolerance ≤ .10).</p>
+  </div>
+</section>
+
+<p class="foot">All data in this tool are simulated for teaching. The tool runs entirely in your browser and sends nothing anywhere.</p>
+</div>
+
+<script>
+"use strict";
+// ======================= MATH-START =======================
+function fitSimple(xs, ys){
+  const n=xs.length; let mx=0,my=0; for(let i=0;i<n;i++){mx+=xs[i];my+=ys[i];} mx/=n; my/=n;
+  let sxx=0,sxy=0,syy=0;
+  for(let i=0;i<n;i++){const dx=xs[i]-mx,dy=ys[i]-my;sxx+=dx*dx;sxy+=dx*dy;syy+=dy*dy;}
+  if(sxx<=1e-12) return null;
+  const b1=sxy/sxx,b0=my-b1*mx,e=[]; let sse=0;
+  for(let i=0;i<n;i++){e.push(ys[i]-(b0+b1*xs[i])); sse+=e[i]*e[i];}
+  return {n,mx,sxx,b0,b1,e,sse,mse:sse/(n-2),r2:syy>0?1-sse/syy:NaN};
+}
+function diagnostics(xs, ys){
+  const f=fitSimple(xs,ys); if(!f) return null;
+  const n=f.n,k=1;
+  const d=xs.map((x,i)=>{
+    const dx=x-f.mx,h=1/n+dx*dx/f.sxx,e=f.e[i],om=1-h;
+    const si=Math.sqrt(Math.max((f.sse-e*e/om)/(n-k-2),1e-300));
+    const t=e/(si*Math.sqrt(om));
+    return {h,hc:h-1/n,t,dffits:t*Math.sqrt(h/om)};
+  });
+  return {fit:f,d};
+}
+// ======================= MATH-END =======================
+
+const $=s=>document.querySelector(s);
+const fmt=(v,d=2)=>(v==null||!isFinite(v))?'—':(Math.abs(v)<0.5*Math.pow(10,-d)?(0).toFixed(d):v.toFixed(d));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+
+// ---------------- Tabs + glossary links ----------------
+const tabs=[...document.querySelectorAll('.tab')];
+function showTab(t){tabs.forEach(b=>{const on=b===t;b.setAttribute('aria-selected',on);$('#'+b.getAttribute('aria-controls')).hidden=!on;});}
+tabs.forEach(b=>b.addEventListener('click',()=>showTab(b)));
+function goTerm(id){
+  showTab($('#tab-terms'));
+  document.querySelectorAll('.gloss .hl').forEach(e=>e.classList.remove('hl'));
+  const dt=document.getElementById('t-'+id); if(!dt) return;
+  dt.classList.add('hl'); dt.nextElementSibling.classList.add('hl');
+  dt.scrollIntoView({behavior:'smooth',block:'center'});
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-term]'); if(b){e.preventDefault(); goTerm(b.dataset.term);}});
+
+// ---------------- shared challenge helpers ----------------
+let done=store.get('rdl2-done',{});
+function chalHTML(c){return `<div class="chal ${done[c.id]?'done':''}" id="ch-${c.id}">
+  <div class="head"><strong>${c.title}</strong><span class="pill ${done[c.id]?'done':''}">${done[c.id]?'Done ✓':'Try it'}</span></div>
+  <p>${c.task}</p>
+  ${c.hint?`<button class="linkish" data-hint="${c.id}">Show hint</button><div class="hint">${c.hint}</div>`:''}
+  <div class="fb" role="status"><b>Why:</b> ${c.fb}</div></div>`;}
+function wireHints(host){host.querySelectorAll('[data-hint]').forEach(b=>b.addEventListener('click',()=>{const el=$('#ch-'+b.dataset.hint);el.classList.toggle('showhint');b.textContent=el.classList.contains('showhint')?'Hide hint':'Show hint';}));}
+function markDone(id){
+  if(done[id]) return; done[id]=true; store.set('rdl2-done',done);
+  const el=$('#ch-'+id); if(el){el.classList.add('done','flash');const p=el.querySelector('.pill');p.textContent='Done ✓';p.classList.add('done');setTimeout(()=>el.classList.remove('flash'),1300);}
+  renderStepper(); progressCol();
+}
+
+// =============== TAB 1 ===============
+const ORIGINAL=[[2,12],[5,6],[6,23],[6,21],[6,20],[7,36],[8,39],[9,18],[10,31],[12,25],[14,27],[16,50],[16,28],[17,42],[18,54]].map((p,i)=>({id:i+1,x:p[0],y:p[1]}));
+let cases=ORIGINAL.map(c=>({...c})), selId=null, tainted=false, step=0, DX=null;
+const CUT={lev:0.20,sdr:3,dff:1};
+const XMAX=40,YMAX=80,SC={l:52,r:625,t:16,b:368};
+const sx=x=>SC.l+(x/XMAX)*(SC.r-SC.l), sy=y=>SC.b-(y/YMAX)*(SC.b-SC.t);
+const ix=px=>(px-SC.l)/(SC.r-SC.l)*XMAX, iy=py=>(SC.b-py)/(SC.b-SC.t)*YMAX;
+const fitWithout=id=>fitSimple(cases.filter(c=>c.id!==id).map(c=>c.x),cases.filter(c=>c.id!==id).map(c=>c.y));
+
+const STEPS=[
+ {key:'lev',name:'Leverage',q:'Unusual on X?',term:'leverage',
+  question:'How unusual is this case\'s Years value?',stat:'Statistic: centered leverage, h*. Flag if h* &gt; .20.',
+  intro:'<p>Leverage asks only about the <b>X variable</b>: how far a case\'s Years value is from the average Years value (the dotted line). The farther from average, the higher the leverage.</p><p>Leverage ignores Y completely.</p>',
+  flagged:d=>d.hc>CUT.lev,
+  chals:[
+   {id:'l1',title:'Find high leverage',task:'Drag any case far enough to the left or right that its leverage passes the .20 line.',
+    hint:'Which direction on the plot changes a case\'s Years value?',
+    fb:'Leverage grows with distance from the average Years value, in either direction. High-leverage cases have the most <em>potential</em> to tilt the line, like sitting at the end of a seesaw.'},
+   {id:'l2',title:'Does Y matter?',task:'Select a high-leverage case and drag it <b>straight up or down</b> (keep its Years value the same). Watch the leverage number.',
+    fb:'Leverage stayed the same. It depends only on X, which is why slide 13 says cases with identical leverage can have very different effects on the results. What they do depends on their Y values, which is what the next two steps look at.'}]},
+ {key:'sdr',name:'Discrepancy',q:'Far from the line?',term:'discrepancy',
+  question:'How far is this case from the line the other cases predict?',stat:'Statistic: studentized deleted residual (SDR). Flag if it is beyond ±3.',
+  intro:'<p>Discrepancy asks whether a case\'s <b>Y value</b> is far from what we would predict for it.</p><p>The purple dashed line is the regression line fit <b>without</b> the selected case. The purple vertical segment is the distance from the case to that line. The SDR puts that distance on a standard scale, much like a z-score.</p>',
+  flagged:d=>Math.abs(d.t)>CUT.sdr,
+  chals:[
+   {id:'d1',title:'Make a case stand out',task:'Drag a case up or down until its SDR goes beyond ±3.',
+    hint:'Move a case far above or below where the other cases would predict it to be.',
+    fb:'The case is now far from the line the <em>other</em> cases predict. Why leave the case out when drawing that line? A case pulls the regression line toward itself, so measuring it against a line it helped draw would make it look less unusual than it is.'}]},
+ {key:'dff',name:'Influence',q:'Changes the results?',term:'influence',
+  question:'How much does this case change the results?',stat:'Statistic: DFFITS. Flag if it is beyond ±1.',
+  intro:'<p>Influence asks: <b>if we deleted this case, how much would the regression change?</b> Compare the solid line (all cases) with the dashed line (without the selected case), and the slope and R² in the table below.</p><p>Influence roughly needs <b>both</b> high leverage <em>and</em> a large discrepancy.</p>',
+  flagged:d=>Math.abs(d.dffits)>CUT.dff,
+  chals:[
+   {id:'i1',title:'Far out, but harmless',task:'Give a case <b>high leverage</b> (h* &gt; .20) while keeping it <b>not influential</b> (DFFITS within ±1).',
+    hint:'If a case sits far out on X, where on Y can it go without pulling the line?',
+    fb:'The case is far from average on X, but it sits right where the other cases predict. Deleting it barely moves the line, so its leverage is potential influence that never gets used.'},
+   {id:'i2',title:'Make one case matter',task:'Make a single case <b>influential</b> (DFFITS beyond ±1).',
+    hint:'Combine the first two steps: what happens when a case is unusual on X <em>and</em> far from the line?',
+    fb:'You needed both: unusual on X (leverage) and far from the line (discrepancy). Look at how far apart the solid and dashed lines are, and how much the slope changes in the table.'}]},
+ {key:'all',name:'Put it together',q:'One case, new story',term:'outlier',
+  question:'Can one case change your conclusion?',stat:'All three questions at once.',
+  intro:'<p>Now all three statistics are shown for the selected case.</p>',
+  flagged:d=>d.hc>CUT.lev||Math.abs(d.t)>CUT.sdr||Math.abs(d.dffits)>CUT.dff,
+  chals:[
+   {id:'p1',title:'Flip the slope',task:'Starting from the original data (press <b>Reset data</b>), drag <b>just one case</b> until the slope for Years becomes <b>negative</b>.',
+    hint:'Only a case with high leverage can do this.',
+    fb:'One case out of 15 reversed the conclusion. So what should you do? If the case is a <b>mistake</b> (a typo, say), fix it or delete it. If it is a real but <b>rare case</b>, think carefully before dropping it. Either way, report what you found and show the results <b>with and without</b> the case (slide 38). Then press <b>Load the slide 10 example</b> to see the case from the notes.'}]}
+];
+
+function renderStepper(){
+  $('#stepper').innerHTML=STEPS.map((s,i)=>{const fin=s.chals.every(c=>done[c.id]);
+    return `<button class="step" data-i="${i}" ${i===step?'aria-current="step"':''}><span class="q">Step ${i+1}${fin?' <span class="chk">✓</span>':''}</span><b>${s.name}</b><span class="q">${s.q}</span></button>`;}).join('');
+  $('#stepper').querySelectorAll('.step').forEach(b=>b.addEventListener('click',()=>{step=+b.dataset.i;renderOut();}));
+}
+function meter(label,val,absVal,cut,max,note){
+  const pct=Math.min(100,absVal/max*100), fl=absVal>cut;
+  return `<div class="meter"><div class="lab"><span>${label}</span><span class="val ${fl?'flag':''}">${val}</span></div>
+   <div class="track"><div class="fill ${fl?'flag':''}" style="width:${pct}%"></div><div class="cut" style="left:${cut/max*100}%" title="cutoff"></div></div>
+   <div class="note">${note}</div></div>`;
+}
+function renderStepCard(){
+  const S=STEPS[step], si=cases.findIndex(c=>c.id===selId);
+  let s=`<div class="q">${S.question}</div><div class="term">${S.stat} · <button class="linkish" data-term="${S.term}">Define ${S.name==='Put it together'?'outlier':S.name.toLowerCase()}</button></div><div class="explain">${S.intro}</div>`;
+  if(si<0||!DX){ s+=`<div class="verdict">👆 Click or drag a point on the plot to see its numbers.</div>`; }
+  else{
+    const d=DX.d[si], c=cases[si];
+    s+=`<div class="small muted" style="margin-top:10px">Selected: <b style="color:var(--ink)">case ${c.id}</b>, ${fmt(c.x,1)} years, ${fmt(c.y,1)} publications</div>`;
+    const L=()=>meter('Leverage (h*)',fmt(d.hc,3),d.hc,CUT.lev,0.95,'Dashed mark = .20 cutoff');
+    const T=()=>meter('Distance from line (SDR)',fmt(d.t,2),Math.abs(d.t),CUT.sdr,8,'Bar shows size, ignoring sign. Dashed mark = ±3');
+    const F=()=>meter('Influence (DFFITS)',fmt(d.dffits,2),Math.abs(d.dffits),CUT.dff,4,'Bar shows size, ignoring sign. Dashed mark = ±1');
+    if(S.key==='lev') s+=L();
+    if(S.key==='sdr') s+=T();
+    if(S.key==='dff'||S.key==='all') s+=L()+T()+F();
+    if(S.key==='dff'||S.key==='all'){
+      const g=fitWithout(selId), f=DX.fit;
+      s+=`<table style="margin-top:10px"><thead><tr><th></th><th>All cases</th><th>Without case ${selId}</th></tr></thead><tbody>
+        <tr><td>Slope B₁ (pubs per year)</td><td>${fmt(f.b1,2)}</td><td>${g?fmt(g.b1,2):'—'}</td></tr>
+        <tr><td>R²</td><td>${fmt(f.r2,2)}</td><td>${g?fmt(g.r2,2):'—'}</td></tr></tbody></table>`;
+    }
+    const fl=S.flagged(d);
+    s+=`<div class="verdict ${fl?'flag':''}">${fl?'⚑ This case is beyond the rule-of-thumb cutoff.':'This case is within the cutoff.'}</div>`;
+  }
+  s+=`<div style="margin-top:14px"><b>Challenges</b></div>`+S.chals.map(chalHTML).join('');
+  s+=`<div class="nav"><button class="btn" id="prevStep" ${step===0?'disabled':''}>← Back</button><button class="btn primary" id="nextStep" ${step===STEPS.length-1?'disabled':''}>Next step →</button></div>`;
+  const card=$('#stepCard'); card.innerHTML=s; wireHints(card);
+  $('#prevStep').onclick=()=>{step--;renderOut();}; $('#nextStep').onclick=()=>{step++;renderOut();};
+}
+function renderScatter(){
+  const S=STEPS[step], svg=$('#scatter'); let s='';
+  s+=`<defs><clipPath id="clipS"><rect x="${SC.l}" y="${SC.t}" width="${SC.r-SC.l}" height="${SC.b-SC.t}"/></clipPath></defs>`;
+  for(let x=0;x<=XMAX;x+=5) s+=`<line class="gridline" x1="${sx(x)}" x2="${sx(x)}" y1="${SC.t}" y2="${SC.b}"/><text x="${sx(x)}" y="${SC.b+16}" text-anchor="middle">${x}</text>`;
+  for(let y=0;y<=YMAX;y+=10) s+=`<line class="gridline" x1="${SC.l}" x2="${SC.r}" y1="${sy(y)}" y2="${sy(y)}"/><text x="${SC.l-8}" y="${sy(y)+4}" text-anchor="end">${y}</text>`;
+  s+=`<text x="${(SC.l+SC.r)/2}" y="${SC.b+36}" text-anchor="middle" style="font-weight:600">Years since PhD (X)</text>`;
+  s+=`<text transform="translate(14 ${(SC.t+SC.b)/2}) rotate(-90)" text-anchor="middle" style="font-weight:600">Publications (Y)</text>`;
+  const sel=cases.find(c=>c.id===selId);
+  if(DX){
+    const f=DX.fit;
+    if(S.key==='lev'){
+      s+=`<line x1="${sx(f.mx)}" x2="${sx(f.mx)}" y1="${SC.t}" y2="${SC.b}" stroke="var(--ink)" stroke-dasharray="2 4" opacity=".7"/><text x="${sx(f.mx)+5}" y="${SC.t+13}" style="fill:var(--ink)">average Years = ${fmt(f.mx,1)}</text>`;
+      if(sel){const yy=sy(sel.y); s+=`<line x1="${sx(f.mx)}" x2="${sx(sel.x)}" y1="${yy}" y2="${yy}" stroke="var(--accent)" stroke-width="2"/><text x="${(sx(f.mx)+sx(sel.x))/2}" y="${yy-8}" text-anchor="middle" style="fill:var(--accent);font-weight:600">distance from average X</text>`;}
+    }
+    s+=`<g clip-path="url(#clipS)"><line x1="${sx(0)}" y1="${sy(f.b0)}" x2="${sx(XMAX)}" y2="${sy(f.b0+f.b1*XMAX)}" stroke="var(--accent)" stroke-width="2.5" opacity="${S.key==='lev'?0.25:S.key==='sdr'?0.35:1}"/>`;
+    if(sel&&S.key!=='lev'){
+      const g=fitWithout(sel.id);
+      if(g){
+        s+=`<line x1="${sx(0)}" y1="${sy(g.b0)}" x2="${sx(XMAX)}" y2="${sy(g.b0+g.b1*XMAX)}" stroke="var(--alt)" stroke-width="2.2" stroke-dasharray="7 5"/>`;
+        if(S.key==='sdr'||S.key==='all'){const yh=g.b0+g.b1*sel.x; s+=`<line x1="${sx(sel.x)}" x2="${sx(sel.x)}" y1="${sy(sel.y)}" y2="${sy(yh)}" stroke="var(--alt)" stroke-width="2.5"/><circle cx="${sx(sel.x)}" cy="${sy(yh)}" r="3" fill="var(--alt)"/>`;}
+      }
+    }
+    s+='</g>';
+  }
+  cases.forEach((c,i)=>{
+    const d=DX?DX.d[i]:null, fl=d&&S.flagged(d), isSel=c.id===selId;
+    if(isSel) s+=`<circle cx="${sx(c.x)}" cy="${sy(c.y)}" r="13" fill="none" stroke="var(--alt)" stroke-width="2.5"/>`;
+    s+=`<circle class="pt" data-id="${c.id}" cx="${sx(c.x)}" cy="${sy(c.y)}" r="${isSel?8:7}" fill="${fl?'var(--flag)':'var(--accent)'}"><title>Case ${c.id}: ${fmt(c.x,1)} years, ${fmt(c.y,1)} pubs</title></circle>`;
+    if(isSel) s+=`<text x="${sx(c.x)+14}" y="${sy(c.y)-10}" style="fill:var(--ink);font-weight:700">${c.id}</text>`;
+  });
+  svg.innerHTML=s;
+  const lab={lev:'high leverage',sdr:'far from the line',dff:'influential',all:'beyond any cutoff'}[S.key];
+  $('#legend').innerHTML=`<span><i class="dot ok"></i>typical case</span><span><i class="dot"></i>${lab}</span>`+
+    (S.key==='lev'?'':`<span><i></i>line with all cases</span><span><i class="alt"></i>line without selected case</span>`);
+}
+function renderOut(){
+  DX=diagnostics(cases.map(c=>c.x),cases.map(c=>c.y));
+  renderStepper(); renderScatter(); renderStepCard();
+  $('#scenario').hidden=step!==3;
+}
+
+const scatter=$('#scatter'); let drag=null;
+function svgPt(ev){const p=scatter.createSVGPoint();p.x=ev.clientX;p.y=ev.clientY;return p.matrixTransform(scatter.getScreenCTM().inverse());}
+scatter.addEventListener('pointerdown',ev=>{
+  const t=ev.target.closest('.pt'); if(!t) return;
+  const c=cases.find(c=>c.id===+t.dataset.id); selId=c.id;
+  drag={id:c.id,pid:ev.pointerId,x0:c.x,y0:c.y,moved:false};
+  scatter.setPointerCapture(ev.pointerId); ev.preventDefault(); renderOut();
+});
+scatter.addEventListener('pointermove',ev=>{
+  if(!drag||ev.pointerId!==drag.pid) return;
+  const p=svgPt(ev), c=cases.find(c=>c.id===drag.id);
+  const nx=Math.round(Math.max(0,Math.min(XMAX,ix(p.x)))*2)/2, ny=Math.round(Math.max(0,Math.min(YMAX,iy(p.y)))*2)/2;
+  if(nx!==c.x||ny!==c.y){const ox=c.x;c.x=nx;c.y=ny;if(!fitSimple(cases.map(c=>c.x),cases.map(c=>c.y)))c.x=ox;drag.moved=true;renderOut();}
+});
+function endDrag(ev){if(!drag||ev.pointerId!==drag.pid)return;const dr=drag;drag=null;if(dr.moved)checkOut(dr);}
+scatter.addEventListener('pointerup',endDrag); scatter.addEventListener('pointercancel',endDrag);
+
+function checkOut(dr){
+  if(!DX) return; const D=DX.d;
+  const i=cases.findIndex(c=>c.id===dr.id), c=cases[i], d=D[i];
+  const k=STEPS[step].key; // only the visible step's challenges can be completed
+  if(k==='lev'){
+    if(D.some(v=>v.hc>CUT.lev)) markDone('l1');
+    if(Math.abs(c.x-dr.x0)<=1&&Math.abs(c.y-dr.y0)>=8&&d.hc>CUT.lev) markDone('l2');
+  }
+  if(k==='sdr'&&D.some(v=>Math.abs(v.t)>CUT.sdr)) markDone('d1');
+  if(k==='dff'){
+    if(D.some(v=>v.hc>CUT.lev&&Math.abs(v.dffits)<CUT.dff&&Math.abs(v.t)<CUT.sdr)) markDone('i1');
+    if(D.some(v=>Math.abs(v.dffits)>CUT.dff)) markDone('i2');
+  }
+  if(k==='all'&&!tainted){const moved=cases.filter((c,j)=>c.x!==ORIGINAL[j].x||c.y!==ORIGINAL[j].y).length; if(moved===1&&DX.fit.b1<0) markDone('p1');}
+}
+$('#resetData').addEventListener('click',()=>{cases=ORIGINAL.map(c=>({...c}));selId=null;tainted=false;renderOut();});
+$('#scenario').addEventListener('click',()=>{cases=ORIGINAL.map(c=>({...c}));cases[14].x=32;cases[14].y=6;selId=15;tainted=true;renderOut();});
+$('#dlCsv').addEventListener('click',()=>{
+  const csv='case,years,pubs\n'+cases.map(c=>`${c.id},${c.x},${c.y}`).join('\n')+'\n';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='diagnostics_lab_data.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+});
+
+// =============== TAB 2 ===============
+const N2=100, B1=0.40;
+const COL_CH=[
+ {id:'c1',title:'Into the danger zone',task:'Move the slider until VIF is <b>above 10</b> (“serious”). About how strong does the correlation have to be?',
+  hint:'VIF = 1 / (1 − r²). For VIF to pass 10, r² has to pass .90.',
+  fb:'The correlation has to be above about .95 in size. With r² above .90, more than 90% of X1 is already explained by X2 (tolerance ≤ .10), and the standard error of B₁ is more than 3 times as large as it would be with unrelated predictors.'},
+ {id:'c2',title:'A real effect that disappears',task:'Find a correlation where the 95% confidence interval for B₁ <b>includes 0</b>, even though the true effect is 0.40.',
+  hint:'Watch the purple interval as you move the slider. When does it cross the zero line?',
+  fb:'The effect is real, but with this much overlap the study can no longer tell it apart from zero, so X1 would probably look “not significant.” That is the point of slide 43: redundant predictors inflate standard errors, and important predictors may not appear significant. Notice that the center of the interval stays at 0.40. Collinearity costs <b>precision</b>, not accuracy.'},
+ {id:'c3',title:'Does the direction matter?',task:'Get VIF <b>above 5</b> using a <b>negative</b> correlation.',
+  fb:'VIF depends on r², so a correlation of −.90 causes exactly as much trouble as +.90. What matters is how much the predictors overlap, not the direction.'}
+];
+function colCalc(r){const r2=r*r,tol=1-r2,vif=1/tol,se=1/Math.sqrt((N2-1)*tol),se0=1/Math.sqrt(N2-1);return {r,r2,tol,vif,se,se0,lo:B1-1.98*se,hi:B1+1.98*se,lo0:B1-1.98*se0,hi0:B1+1.98*se0};}
+function overlapD(frac,R){
+  const A=d=>{if(d>=2*R)return 0;return (2*R*R*Math.acos(d/(2*R))-(d/2)*Math.sqrt(4*R*R-d*d))/(Math.PI*R*R);};
+  let lo=0,hi=2*R; for(let i=0;i<50;i++){const m=(lo+hi)/2; if(A(m)>frac) lo=m; else hi=m;} return (lo+hi)/2;
+}
+function zone(v){return v>10?'<span class="zone bad">serious</span>':v>5?'<span class="zone warn">concern</span>':'<span class="zone ok">OK</span>';}
+function renderCol(){
+  const r=+$('#r12').value, C=colCalc(r);
+  $('#o12').textContent=(r>0?'+':'')+r.toFixed(2);
+  const R=70, d=overlapD(C.r2,R), cx=210, c1=cx-d/2, c2=cx+d/2;
+  $('#venn').innerHTML=`<circle cx="${c1}" cy="100" r="${R}" fill="var(--accent)" fill-opacity=".28" stroke="var(--accent)" stroke-width="2"/>
+    <circle cx="${c2}" cy="100" r="${R}" fill="var(--base)" fill-opacity=".25" stroke="var(--base)" stroke-width="2"/>
+    <text x="${c1-R+8}" y="28" style="fill:var(--accent);font-weight:700;font-size:14px">X1</text>
+    <text x="${c2+R-26}" y="28" style="font-weight:700;font-size:14px">X2</text>
+    <text x="${cx}" y="192" text-anchor="middle" style="fill:var(--ink);font-size:13px">overlap r² = ${fmt(C.r2,2)}</text>`;
+  $('#colNums').innerHTML=`<table><tbody>
+    <tr><td>How much of X1 is already explained by X2?<div class="small muted">R²₁ (here, r²)</div></td><td><b>${(C.r2*100).toFixed(0)}%</b></td></tr>
+    <tr><td>How much of X1 is unique?<div class="small muted">Tolerance = 1 − R²₁ · serious if ≤ .10</div></td><td><b>${fmt(C.tol,2)}</b></td></tr>
+    <tr><td>How inflated is the variance of B₁?<div class="small muted">VIF = 1 / Tolerance · concern &gt; 5, serious &gt; 10</div></td><td><b>${fmt(C.vif,2)}</b> ${zone(C.vif)}</td></tr>
+    <tr><td>How many times larger is the standard error?<div class="small muted">√VIF</div></td><td><b>×${fmt(Math.sqrt(C.vif),2)}</b></td></tr>
+  </tbody></table>`;
+  const P={l:20,r:425}, lo=-1.0, hi=1.8, X=v=>P.l+(v-lo)/(hi-lo)*(P.r-P.l), cl=v=>Math.max(lo,Math.min(hi,v));
+  let s=`<line x1="${X(0)}" x2="${X(0)}" y1="8" y2="118" stroke="var(--ink)" stroke-dasharray="3 3" opacity=".6"/><text x="${X(0)}" y="134" text-anchor="middle">0 (no effect)</text>`;
+  s+=`<line x1="${X(B1)}" x2="${X(B1)}" y1="8" y2="118" stroke="var(--ok)" stroke-width="2"/><text x="${X(B1)}" y="148" text-anchor="middle" style="fill:var(--ok);font-weight:700">true B₁ = 0.40</text>`;
+  [-1,-0.5,0.5,1,1.5].forEach(v=>s+=`<text x="${X(v)}" y="134" text-anchor="middle" style="font-size:11px">${v}</text>`);
+  const bar=(y,a,b,col,lab)=>`<text x="${P.l}" y="${y-12}" style="fill:var(--ink);font-size:12px">${lab}</text><line x1="${X(cl(a))}" x2="${X(cl(b))}" y1="${y}" y2="${y}" stroke="${col}" stroke-width="8" stroke-linecap="round" opacity=".85"/><circle cx="${X(B1)}" cy="${y}" r="6" fill="var(--surface)" stroke="${col}" stroke-width="2.5"/>`;
+  s+=bar(40,C.lo0,C.hi0,'var(--accent)','If X1 and X2 were unrelated (r = 0)');
+  s+=bar(92,C.lo,C.hi,'var(--alt)',`With r = ${r.toFixed(2)}`);
+  $('#ciPlot').innerHTML=s;
+  $('#ciText').innerHTML=`Unrelated predictors: B₁ = 0.40 ± ${fmt(1.98*C.se0,2)}. &nbsp;With r = ${r.toFixed(2)}: B₁ = 0.40 ± <b>${fmt(1.98*C.se,2)}</b>`+(C.lo<0?` <span class="zone bad">interval includes 0</span>`:'');
+  if(C.vif>10) markDone('c1');
+  if(C.lo<0) markDone('c2');
+  if(r<0&&C.vif>5) markDone('c3');
+}
+function progressCol(){$('#colProgress').textContent=`(${COL_CH.filter(c=>done[c.id]).length}/${COL_CH.length} complete)`;}
+$('#r12').addEventListener('input',renderCol);
+
+// ---------------- init ----------------
+$('#colChallenges').innerHTML=COL_CH.map(chalHTML).join(''); wireHints($('#colChallenges'));
+renderOut(); renderCol(); progressCol();
+</script>
+</body>
+</html>
